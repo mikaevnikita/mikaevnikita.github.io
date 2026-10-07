@@ -24,8 +24,8 @@ const titleOf = (name: string) =>
 const albumOf = (path: string) => {
   const parts = path.replace('../photos/', '').split('/');
   if (parts.length < 2) return null;
-  // «:» в имени папки — это «/», набранный в Finder: «05 Landscape:Nature» → «Landscape/Nature»
-  const title = (titleOf(parts[0]) || parts[0]).replace(/:/g, '/');
+  // «/» в имени папки: scripts/photos.mjs пишет его как «∕» (U+2215) — «05 Landscape∕Nature» → «Landscape/Nature»
+  const title = (titleOf(parts[0]) || parts[0]).replace(/[:∕]/g, '/');
   return { slug: title.toLowerCase().replace(/\s+/g, '-'), title };
 };
 
@@ -41,7 +41,7 @@ const photos = await Promise.all(
     .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
     .map(async ([path, mod]) => {
       const name = path.split('/').pop()!.replace(/\.[^.]+$/, '');
-      const title = titleOf(name);
+      const title = titleOf(name).replace(/∕/g, '/');
       const widths = FULL_WIDTHS.filter((w) => w < mod.default.width);
       if (widths.length === 0 || mod.default.width <= 2560) widths.push(Math.min(mod.default.width, 2560));
       const full = await getImage({

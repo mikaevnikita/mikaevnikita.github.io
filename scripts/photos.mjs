@@ -21,6 +21,10 @@ const SRC = resolve(process.argv[2] ?? 'originals');
 const OUT = resolve('src/photos');
 const INPUT = /\.(jpe?g|png|tiff?|webp|avif)$/i;
 
+// «/», набранный в Finder, хранится на диске как «:», а с «:» в пути ломаются картинки
+// в dev-сервере. Заменяем его на похожий символ «∕» (U+2215); на сайте он выводится как «/».
+const safe = (p) => p.replace(/:/g, '∕');
+
 // Фото в корне и в подпапках первого уровня (альбомах).
 const entries = await readdir(SRC, { withFileTypes: true }).catch(() => []);
 let files = [];
@@ -38,7 +42,7 @@ let skipped = 0;
 
 async function convert(file) {
   const input = join(SRC, file);
-  const output = join(OUT, parse(file).dir, `${parse(file).name}.webp`);
+  const output = join(OUT, safe(parse(file).dir), `${safe(parse(file).name)}.webp`);
   const inStat = await stat(input);
   const outStat = await stat(output).catch(() => null);
   if (outStat && outStat.mtimeMs >= inStat.mtimeMs) {
@@ -54,7 +58,7 @@ async function convert(file) {
     .webp({ quality: QUALITY, effort: 6, smartSubsample: true, preset: 'photo' })
     .toFile(output);
   console.log(
-    `✓ ${file} → ${join(parse(file).dir, parse(output).base)}  ${info.width}×${info.height}  ` +
+    `✓ ${file} → ${join(safe(parse(file).dir), parse(output).base)}  ${info.width}×${info.height}  ` +
       `${(inStat.size / 1e6).toFixed(1)} → ${(info.size / 1e6).toFixed(2)} МБ`,
   );
   done++;
