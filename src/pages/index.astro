@@ -136,7 +136,7 @@ const albums = [...new Map(photos.filter((p) => p.album).map((p) => [p.album!.sl
 
       <section id="contact" class="contact">
         <h2>Contact me</h2>
-        <p>Съёмки, сотрудничество или просто поговорить о фото — пишите.</p>
+        <p>Shoots, collaborations, or just a chat about photography — get in touch.</p>
         <div class="contact-cards">
           {CONTACTS.map((c) => (
             <a class="card" href={c.href} target={c.kind === 'email' ? undefined : '_blank'} rel="noopener">
