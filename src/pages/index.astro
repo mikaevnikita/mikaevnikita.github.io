@@ -5,12 +5,9 @@ import { Image, getImage } from 'astro:assets';
 const TITLE = 'Nikita Mikaev';
 const SUBTITLE = 'Photography';
 
-// Все фото из src/photos (JPG/PNG/WebP). Порядок — по имени файла (01-…, 02-… и т.д.).
-// Конвертация в WebP и ресайз происходят при сборке, исходники в браузер не попадают.
-const modules = import.meta.glob<{ default: ImageMetadata }>(
-  '../photos/*.{jpg,jpeg,JPG,JPEG,png,PNG,webp,WEBP}',
-  { eager: true },
-);
+// WebP-мастера из src/photos (их готовит `npm run photos`). Порядок — по имени файла.
+// Адаптивные размеры для сетки и просмотра нарезаются при сборке.
+const modules = import.meta.glob<{ default: ImageMetadata }>('../photos/*.webp', { eager: true });
 
 // Превью в сетке: ширины под 1–3 колонки на обычных и retina-экранах.
 const THUMB_WIDTHS = [480, 800, 1200, 1600];
@@ -64,7 +61,7 @@ const photos = await Promise.all(
     <main>
       {
         photos.length === 0 ? (
-          <p class="empty">Положите фото (JPG, PNG или WebP) в <code>src/photos</code> — и они появятся здесь.</p>
+          <p class="empty">Положите фото в <code>originals/</code> и запустите <code>npm run photos</code> — и они появятся здесь.</p>
         ) : (
           <div class="grid">
             {photos.map((p, i) => (
