@@ -4,9 +4,9 @@
 // Папка = альбом, имя файла = название фото:
 //   originals/Abstract/The Theater of Absurd.jpg → src/photos/Abstract/The Theater of Absurd.webp
 // Оригиналы в git не попадают; в src/photos (и на GitHub) кладутся только .webp.
-// Для ./originals папка src/photos синхронизируется: если фото переименовать, перенести
-// в другой альбом или удалить, старый .webp тоже удалится.
-import { readdir, stat, mkdir, rm, rmdir } from 'node:fs/promises';
+// Скрипт только добавляет новые .webp и ничего не удаляет: оригиналы после конвертации
+// можно стирать. Переименовать, перенести или удалить фото — прямо в src/photos.
+import { readdir, stat, mkdir } from 'node:fs/promises';
 import { dirname, join, parse, resolve } from 'node:path';
 import sharp from 'sharp';
 
@@ -17,7 +17,6 @@ const MAX_SIDE = 2560;
 const QUALITY = 92;
 
 const SRC = resolve(process.argv[2] ?? 'originals');
-const SYNC = process.argv[2] === undefined;
 const OUT = resolve('src/photos');
 const INPUT = /\.(jpe?g|png|tiff?|webp|avif)$/i;
 
@@ -62,22 +61,4 @@ for (const file of files) {
   done++;
 }
 
-// Удаляем .webp, у которых больше нет оригинала (переименованные, перенесённые, удалённые).
-let removed = 0;
-if (SYNC) {
-  const expected = new Set(files.map((f) => join(parse(f).dir, `${parse(f).name}.webp`)));
-  const outEntries = await readdir(OUT, { withFileTypes: true }).catch(() => []);
-  for (const e of outEntries) {
-    const rels = e.isDirectory()
-      ? (await readdir(join(OUT, e.name))).map((f) => join(e.name, f))
-      : [e.name];
-    for (const rel of rels.filter((f) => f.endsWith('.webp'))) {
-      if (expected.has(rel)) continue;
-      await rm(join(OUT, rel));
-      console.log(`✗ ${rel} — оригинала больше нет, удалён`);
-      removed++;
-    }
-    if (e.isDirectory()) await rmdir(join(OUT, e.name)).catch(() => {}); // только если пустая
-  }
-}
-console.log(`Готово: ${done} сконвертировано, ${skipped} без изменений, ${removed} удалено.`);
+console.log(`Готово: ${done} сконвертировано, ${skipped} без изменений.`);
