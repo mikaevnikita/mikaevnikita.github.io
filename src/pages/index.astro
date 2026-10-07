@@ -72,7 +72,7 @@ const albums = [...new Map(photos.filter((p) => p.album).map((p) => [p.album!.sl
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;1,400&family=Inter:wght@400;500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400&family=Cormorant+Garamond:ital,wght@0,400;1,400&family=Inter:wght@400;500&display=swap"
       rel="stylesheet"
     />
   </head>
@@ -282,11 +282,14 @@ const albums = [...new Map(photos.filter((p) => p.album).map((p) => [p.album!.sl
         padding: clamp(48px, 10vw, 110px) 16px clamp(32px, 6vw, 64px);
       }
       h1 {
-        font-family: 'Cormorant Garamond', Georgia, serif;
+        font-family: 'Bodoni Moda', 'Didot', Georgia, serif;
+        font-optical-sizing: auto;
         font-weight: 400;
-        font-size: clamp(2.4rem, 6vw, 4.2rem);
-        letter-spacing: 0.02em;
-        margin: 0;
+        font-size: clamp(1.9rem, 5.5vw, 3.8rem);
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        line-height: 1.1;
+        margin: 0 -0.12em 0 0; /* компенсирует разрядку после последней буквы для центрирования */
       }
       header p {
         margin: 10px 0 0;
