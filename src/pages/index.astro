@@ -5,9 +5,27 @@ import { Image, getImage } from 'astro:assets';
 const TITLE = 'Nikita Mikaev';
 const SUBTITLE = 'Photography';
 
-// WebP-мастера из src/photos (их готовит `npm run photos`). Порядок — по имени файла.
-// Адаптивные размеры для сетки и просмотра нарезаются при сборке.
-const modules = import.meta.glob<{ default: ImageMetadata }>('../photos/*.webp', { eager: true });
+const CONTACTS = [
+  { kind: 'instagram', label: 'Instagram', value: '@nikitas.roll', href: 'https://instagram.com/nikitas.roll' },
+  { kind: 'telegram', label: 'Telegram', value: '@turingalan', href: 'https://t.me/turingalan' },
+  { kind: 'email', label: 'Email', value: 'n.v.mikaev@gmail.com', href: 'mailto:n.v.mikaev@gmail.com' },
+];
+
+// WebP-мастера из src/photos (их готовит `npm run photos`).
+// Подпапка = альбом: src/photos/01-street/02-rain.webp → альбом «Street».
+// Порядок альбомов и фото — по имени (01-…, 02-…), числовой префикс в названия не попадает.
+const modules = import.meta.glob<{ default: ImageMetadata }>('../photos/**/*.webp', { eager: true });
+
+const humanize = (s: string) => s.replace(/^\d+[-_ ]*/, '').replace(/[-_]+/g, ' ').trim();
+const albumOf = (path: string) => {
+  const parts = path.replace('../photos/', '').split('/');
+  if (parts.length < 2) return null;
+  const title = humanize(parts[0]);
+  return {
+    slug: title.toLowerCase().replace(/\s+/g, '-'),
+    title: title.charAt(0).toUpperCase() + title.slice(1),
+  };
+};
 
 // Превью в сетке: ширины под 1–3 колонки на обычных и retina-экранах.
 const THUMB_WIDTHS = [480, 800, 1200, 1600];
@@ -21,7 +39,7 @@ const photos = await Promise.all(
     .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
     .map(async ([path, mod]) => {
       const name = path.split('/').pop()!.replace(/\.[^.]+$/, '');
-      const alt = name.replace(/^\d+[-_ ]*/, '').replace(/[-_]+/g, ' ').trim() || 'Фото';
+      const alt = humanize(name) || 'Photo';
       const widths = FULL_WIDTHS.filter((w) => w < mod.default.width);
       if (widths.length === 0 || mod.default.width <= 2560) widths.push(Math.min(mod.default.width, 2560));
       const full = await getImage({
@@ -32,13 +50,17 @@ const photos = await Promise.all(
         format: 'webp',
         quality: FULL_QUALITY,
       });
-      return { src: mod.default, alt, href: full.src, srcset: full.srcSet.attribute };
+      return { src: mod.default, alt, href: full.src, srcset: full.srcSet.attribute, album: albumOf(path) };
     }),
+);
+
+const albums = [...new Map(photos.filter((p) => p.album).map((p) => [p.album!.slug, p.album!])).values()].map(
+  (a) => ({ ...a, count: photos.filter((p) => p.album?.slug === a.slug).length }),
 );
 ---
 
 <!doctype html>
-<html lang="ru">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -56,6 +78,7 @@ const photos = await Promise.all(
     <header>
       <h1>{TITLE}</h1>
       <p>{SUBTITLE}</p>
+      <a class="contact-link" href="#contact">Contact me</a>
     </header>
 
     <main>
@@ -63,9 +86,22 @@ const photos = await Promise.all(
         photos.length === 0 ? (
           <p class="empty">Положите фото в <code>originals/</code> и запустите <code>npm run photos</code> — и они появятся здесь.</p>
         ) : (
+          <>
+          {albums.length > 0 && (
+            <nav class="albums" aria-label="Albums">
+              <button class="chip" data-album="" aria-pressed="true">
+                All <span>{photos.length}</span>
+              </button>
+              {albums.map((a) => (
+                <button class="chip" data-album={a.slug} aria-pressed="false">
+                  {a.title} <span>{a.count}</span>
+                </button>
+              ))}
+            </nav>
+          )}
           <div class="grid">
             {photos.map((p, i) => (
-              <a class="item" href={p.href} data-srcset={p.srcset} style={`--d:${Math.min(i, 12) * 60}ms`}>
+              <a class="item" href={p.href} data-srcset={p.srcset} data-album={p.album?.slug ?? ''} style={`--d:${Math.min(i, 12) * 60}ms`}>
                 <Image
                   src={p.src}
                   alt={p.alt}
@@ -79,39 +115,79 @@ const photos = await Promise.all(
               </a>
             ))}
           </div>
+          </>
         )
       }
+
+      <section id="contact" class="contact">
+        <h2>Contact me</h2>
+        <p>Съёмки, сотрудничество или просто поговорить о фото — пишите.</p>
+        <div class="contact-cards">
+          {CONTACTS.map((c) => (
+            <a class="card" href={c.href} target={c.kind === 'email' ? undefined : '_blank'} rel="noopener">
+              {c.kind === 'instagram' && (
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5" /><circle cx="12" cy="12" r="4" /><circle cx="17.5" cy="6.5" r="0.6" fill="currentColor" /></svg>
+              )}
+              {c.kind === 'telegram' && (
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 4 3 11l6 2.5M21 4l-3.5 16-8.5-6.5M21 4 9 13.5V19l3-3.5" /></svg>
+              )}
+              {c.kind === 'email' && (
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3.5 6 8.5 7 8.5-7" /></svg>
+              )}
+              <span class="card-label">{c.label}</span>
+              <span class="card-value">{c.value}</span>
+            </a>
+          ))}
+        </div>
+      </section>
     </main>
 
     <footer>© {new Date().getFullYear()} {TITLE}</footer>
 
     <div class="lightbox" hidden aria-modal="true" role="dialog">
-      <button class="lb-close" aria-label="Закрыть">×</button>
-      <button class="lb-prev" aria-label="Предыдущее">‹</button>
+      <button class="lb-close" aria-label="Close">×</button>
+      <button class="lb-prev" aria-label="Previous">‹</button>
       <img class="lb-img" alt="" sizes="100vw" />
-      <button class="lb-next" aria-label="Следующее">›</button>
+      <button class="lb-next" aria-label="Next">›</button>
       <span class="lb-count"></span>
     </div>
 
     <script>
       const items = [...document.querySelectorAll<HTMLAnchorElement>('.item')];
+      const chips = [...document.querySelectorAll<HTMLButtonElement>('.chip')];
+      let visible = items;
+
+      // Фильтр по альбомам; выбранный альбом хранится в ?album=… — ссылкой можно поделиться.
+      function filter(album: string) {
+        if (album && !chips.some((c) => c.dataset.album === album)) album = '';
+        chips.forEach((c) => c.setAttribute('aria-pressed', String(c.dataset.album === album)));
+        items.forEach((a) => (a.hidden = !!album && a.dataset.album !== album));
+        visible = items.filter((a) => !a.hidden);
+        const url = new URL(location.href);
+        if (album) url.searchParams.set('album', album);
+        else url.searchParams.delete('album');
+        history.replaceState(null, '', url);
+      }
+      chips.forEach((c) => c.addEventListener('click', () => filter(c.dataset.album ?? '')));
+      filter(new URLSearchParams(location.search).get('album') ?? '');
+
       const box = document.querySelector<HTMLElement>('.lightbox')!;
       const img = box.querySelector<HTMLImageElement>('.lb-img')!;
       const count = box.querySelector<HTMLElement>('.lb-count')!;
       let current = 0;
 
       function show(i: number) {
-        current = (i + items.length) % items.length;
-        const a = items[current];
+        current = (i + visible.length) % visible.length;
+        const a = visible[current];
         img.classList.remove('loaded');
         img.onload = () => img.classList.add('loaded');
         img.srcset = a.dataset.srcset ?? '';
         img.src = a.href;
         img.alt = a.querySelector('img')?.alt ?? '';
-        count.textContent = `${current + 1} / ${items.length}`;
+        count.textContent = `${current + 1} / ${visible.length}`;
         // Подгружаем соседей заранее
         [current - 1, current + 1].forEach((j) => {
-          const n = items[(j + items.length) % items.length];
+          const n = visible[(j + visible.length) % visible.length];
           if (!n) return;
           const pre = new Image();
           pre.sizes = '100vw';
@@ -131,10 +207,10 @@ const photos = await Promise.all(
         document.body.style.overflow = '';
       }
 
-      items.forEach((a, i) =>
+      items.forEach((a) =>
         a.addEventListener('click', (e) => {
           e.preventDefault();
-          open(i);
+          open(visible.indexOf(a));
         }),
       );
 
@@ -198,6 +274,50 @@ const photos = await Promise.all(
         font-size: 0.75rem;
       }
 
+      .contact-link {
+        display: inline-block;
+        margin-top: 22px;
+        color: var(--fg);
+        font-size: 0.8rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        text-decoration: none;
+        border-bottom: 1px solid #444;
+        padding-bottom: 3px;
+        transition: border-color 0.2s;
+      }
+      .contact-link:hover { border-color: var(--fg); }
+
+      .albums {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 10px;
+        margin: 0 auto 34px;
+      }
+      .chip {
+        font: inherit;
+        font-size: 0.85rem;
+        color: var(--muted);
+        background: transparent;
+        border: 1px solid #2c2c2c;
+        border-radius: 999px;
+        padding: 8px 18px;
+        cursor: pointer;
+        transition: color 0.2s, border-color 0.2s, background 0.2s;
+      }
+      .chip span {
+        font-size: 0.72rem;
+        opacity: 0.6;
+        margin-left: 4px;
+      }
+      .chip:hover { color: var(--fg); border-color: #555; }
+      .chip[aria-pressed='true'] {
+        color: var(--bg);
+        background: var(--fg);
+        border-color: var(--fg);
+      }
+
       main {
         max-width: 1600px;
         margin: 0 auto;
@@ -219,6 +339,7 @@ const photos = await Promise.all(
         animation: fade-in 0.8s ease forwards;
         animation-delay: var(--d);
       }
+      .item[hidden] { display: none; }
       .item :global(img) {
         display: block;
         width: 100%;
@@ -243,6 +364,66 @@ const photos = await Promise.all(
         background: #1d1d1d;
         padding: 2px 6px;
         border-radius: 4px;
+      }
+
+      .contact {
+        max-width: 880px;
+        margin: clamp(64px, 10vw, 120px) auto 0;
+        text-align: center;
+        scroll-margin-top: 40px;
+      }
+      h2 {
+        font-family: 'Cormorant Garamond', Georgia, serif;
+        font-weight: 400;
+        font-size: clamp(2rem, 4.5vw, 3rem);
+        margin: 0;
+      }
+      .contact > p {
+        color: var(--muted);
+        margin: 12px 0 36px;
+      }
+      .contact-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: var(--gap);
+      }
+      .card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        padding: 30px 16px;
+        border: 1px solid #242424;
+        border-radius: 6px;
+        background: #141414;
+        color: var(--fg);
+        text-decoration: none;
+        transition: border-color 0.25s, background 0.25s, transform 0.25s;
+      }
+      .card:hover {
+        border-color: #4a4a4a;
+        background: #191919;
+        transform: translateY(-2px);
+      }
+      .card svg {
+        width: 26px;
+        height: 26px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.5;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        margin-bottom: 8px;
+      }
+      .card-label {
+        font-size: 0.72rem;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .card-value {
+        font-size: 0.95rem;
+        overflow-wrap: anywhere;
       }
 
       footer {
@@ -302,7 +483,8 @@ const photos = await Promise.all(
       }
       @media (prefers-reduced-motion: reduce) {
         .item { animation: none; opacity: 1; }
-        .item :global(img) { transition: none; }
+        .item[hidden] { display: none; }
+      .item :global(img) { transition: none; }
       }
     </style>
   </body>

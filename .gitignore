@@ -5,11 +5,11 @@ dist/
 
 # Оригиналы фото — только локально, на GitHub уходят WebP из src/photos
 originals/
-src/photos/*.jpg
-src/photos/*.jpeg
-src/photos/*.JPG
-src/photos/*.JPEG
-src/photos/*.png
-src/photos/*.PNG
-src/photos/*.tif
-src/photos/*.tiff
+src/photos/**/*.jpg
+src/photos/**/*.jpeg
+src/photos/**/*.JPG
+src/photos/**/*.JPEG
+src/photos/**/*.png
+src/photos/**/*.PNG
+src/photos/**/*.tif
+src/photos/**/*.tiff
