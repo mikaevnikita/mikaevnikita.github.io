@@ -12,19 +12,20 @@ const CONTACTS = [
 ];
 
 // WebP-мастера из src/photos (их готовит `npm run photos`).
-// Подпапка = альбом: src/photos/01-street/02-rain.webp → альбом «Street».
-// Порядок альбомов и фото — по имени (01-…, 02-…), числовой префикс в названия не попадает.
+// Папка = альбом, имя файла = название фото:
+//   src/photos/Abstract/The Theater of Absurd.webp → альбом «Abstract», фото «The Theater of Absurd».
+// Порядок — по имени. Необязательный числовой префикс («01 », «01-», «01. ») задаёт порядок
+// и в название не попадает. Имена с камеры (DSC02537, IMG_1234) выводятся без названия.
 const modules = import.meta.glob<{ default: ImageMetadata }>('../photos/**/*.webp', { eager: true });
 
-const humanize = (s: string) => s.replace(/^\d+[-_ ]*/, '').replace(/[-_]+/g, ' ').trim();
+const CAMERA_NAME = /^(_?DSC[FN]?|IMG|PXL|DJI|GOPR|MVIMG)[_-]?\d/i;
+const titleOf = (name: string) =>
+  CAMERA_NAME.test(name) ? '' : name.replace(/^\d+[-_. ]+/, '').replace(/_/g, ' ').trim();
 const albumOf = (path: string) => {
   const parts = path.replace('../photos/', '').split('/');
   if (parts.length < 2) return null;
-  const title = humanize(parts[0]);
-  return {
-    slug: title.toLowerCase().replace(/\s+/g, '-'),
-    title: title.charAt(0).toUpperCase() + title.slice(1),
-  };
+  const title = titleOf(parts[0]) || parts[0];
+  return { slug: title.toLowerCase().replace(/\s+/g, '-'), title };
 };
 
 // Превью в сетке: ширины под 1–3 колонки на обычных и retina-экранах.
@@ -39,7 +40,7 @@ const photos = await Promise.all(
     .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
     .map(async ([path, mod]) => {
       const name = path.split('/').pop()!.replace(/\.[^.]+$/, '');
-      const alt = humanize(name) || 'Photo';
+      const title = titleOf(name);
       const widths = FULL_WIDTHS.filter((w) => w < mod.default.width);
       if (widths.length === 0 || mod.default.width <= 2560) widths.push(Math.min(mod.default.width, 2560));
       const full = await getImage({
@@ -50,7 +51,7 @@ const photos = await Promise.all(
         format: 'webp',
         quality: FULL_QUALITY,
       });
-      return { src: mod.default, alt, href: full.src, srcset: full.srcSet.attribute, album: albumOf(path) };
+      return { src: mod.default, title, href: full.src, srcset: full.srcSet.attribute, album: albumOf(path) };
     }),
 );
 
@@ -101,10 +102,17 @@ const albums = [...new Map(photos.filter((p) => p.album).map((p) => [p.album!.sl
           )}
           <div class="grid">
             {photos.map((p, i) => (
-              <a class="item" href={p.href} data-srcset={p.srcset} data-album={p.album?.slug ?? ''} style={`--d:${Math.min(i, 12) * 60}ms`}>
+              <a
+                class="item"
+                href={p.href}
+                data-srcset={p.srcset}
+                data-album={p.album?.slug ?? ''}
+                data-title={p.title}
+                data-album-title={p.album?.title ?? ''}
+                style={`--d:${Math.min(i, 12) * 60}ms`}>
                 <Image
                   src={p.src}
-                  alt={p.alt}
+                  alt={p.title || p.album?.title || 'Photo'}
                   width={Math.min(p.src.width, 1200)}
                   widths={THUMB_WIDTHS}
                   sizes="(max-width: 640px) 100vw, (max-width: 1100px) 50vw, 33vw"
@@ -112,6 +120,12 @@ const albums = [...new Map(photos.filter((p) => p.album).map((p) => [p.album!.sl
                   quality={THUMB_QUALITY}
                   loading={i < 3 ? 'eager' : 'lazy'}
                 />
+                {(p.title || p.album) && (
+                  <span class="caption">
+                    {p.title && <span class="caption-title">{p.title}</span>}
+                    {p.album && <span class="caption-album">{p.album.title}</span>}
+                  </span>
+                )}
               </a>
             ))}
           </div>
@@ -149,7 +163,10 @@ const albums = [...new Map(photos.filter((p) => p.album).map((p) => [p.album!.sl
       <button class="lb-prev" aria-label="Previous">‹</button>
       <img class="lb-img" alt="" sizes="100vw" />
       <button class="lb-next" aria-label="Next">›</button>
-      <span class="lb-count"></span>
+      <div class="lb-caption">
+        <span class="lb-title"></span>
+        <span class="lb-meta"><span class="lb-album"></span><span class="lb-count"></span></span>
+      </div>
     </div>
 
     <script>
@@ -174,6 +191,8 @@ const albums = [...new Map(photos.filter((p) => p.album).map((p) => [p.album!.sl
       const box = document.querySelector<HTMLElement>('.lightbox')!;
       const img = box.querySelector<HTMLImageElement>('.lb-img')!;
       const count = box.querySelector<HTMLElement>('.lb-count')!;
+      const lbTitle = box.querySelector<HTMLElement>('.lb-title')!;
+      const lbAlbum = box.querySelector<HTMLElement>('.lb-album')!;
       let current = 0;
 
       function show(i: number) {
@@ -185,6 +204,8 @@ const albums = [...new Map(photos.filter((p) => p.album).map((p) => [p.album!.sl
         img.src = a.href;
         img.alt = a.querySelector('img')?.alt ?? '';
         count.textContent = `${current + 1} / ${visible.length}`;
+        lbTitle.textContent = a.dataset.title ?? '';
+        lbAlbum.textContent = a.dataset.albumTitle ?? '';
         // Подгружаем соседей заранее
         [current - 1, current + 1].forEach((j) => {
           const n = visible[(j + visible.length) % visible.length];
@@ -340,6 +361,52 @@ const albums = [...new Map(photos.filter((p) => p.album).map((p) => [p.album!.sl
         animation-delay: var(--d);
       }
       .item[hidden] { display: none; }
+      .item { position: relative; }
+      .caption {
+        position: absolute;
+        inset: auto 0 0 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 40px 16px 14px;
+        background: linear-gradient(transparent, rgba(0, 0, 0, 0.65));
+        color: #fff;
+        opacity: 0;
+        transform: translateY(6px);
+        transition: opacity 0.35s ease, transform 0.35s ease;
+        pointer-events: none;
+      }
+      .item:hover .caption,
+      .item:focus-visible .caption {
+        opacity: 1;
+        transform: none;
+      }
+      .caption-title {
+        font-family: 'Cormorant Garamond', Georgia, serif;
+        font-style: italic;
+        font-size: 1.3rem;
+        line-height: 1.2;
+      }
+      .caption-album {
+        font-size: 0.68rem;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        opacity: 0.75;
+      }
+      /* На телефонах наведения нет — подпись всегда видна под фото */
+      @media (hover: none) {
+        .item { background: transparent; border-radius: 0; }
+        .item :global(img) { border-radius: 3px; }
+        .caption {
+          position: static;
+          opacity: 1;
+          transform: none;
+          background: none;
+          padding: 8px 2px 4px;
+        }
+        .caption-title { font-size: 1.1rem; }
+        .caption-album { color: var(--muted); opacity: 1; }
+      }
       .item :global(img) {
         display: block;
         width: 100%;
@@ -447,7 +514,7 @@ const albums = [...new Map(photos.filter((p) => p.album).map((p) => [p.album!.sl
       @keyframes lb-in { from { opacity: 0; } }
       .lb-img {
         max-width: 92vw;
-        max-height: 88vh;
+        max-height: 80vh;
         object-fit: contain;
         opacity: 0;
         transition: opacity 0.3s ease;
@@ -470,13 +537,31 @@ const albums = [...new Map(photos.filter((p) => p.album).map((p) => [p.album!.sl
       .lb-close { top: 8px; right: 12px; }
       .lb-prev { left: 8px; top: 50%; transform: translateY(-50%); }
       .lb-next { right: 8px; top: 50%; transform: translateY(-50%); }
-      .lb-count {
+      .lb-img { margin-bottom: 40px; }
+      .lb-caption {
         position: absolute;
-        bottom: 18px;
-        color: var(--muted);
-        font-size: 0.8rem;
-        letter-spacing: 0.1em;
+        bottom: 14px;
+        left: 16px;
+        right: 16px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        text-align: center;
       }
+      .lb-title {
+        font-family: 'Cormorant Garamond', Georgia, serif;
+        font-style: italic;
+        font-size: 1.25rem;
+      }
+      .lb-title:empty { display: none; }
+      .lb-meta {
+        color: var(--muted);
+        font-size: 0.72rem;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+      }
+      .lb-album:not(:empty)::after { content: ' · '; }
       @media (max-width: 640px) {
         .lb-prev, .lb-next { display: none; }
         .lb-img { max-width: 100vw; }
@@ -484,6 +569,52 @@ const albums = [...new Map(photos.filter((p) => p.album).map((p) => [p.album!.sl
       @media (prefers-reduced-motion: reduce) {
         .item { animation: none; opacity: 1; }
         .item[hidden] { display: none; }
+      .item { position: relative; }
+      .caption {
+        position: absolute;
+        inset: auto 0 0 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 40px 16px 14px;
+        background: linear-gradient(transparent, rgba(0, 0, 0, 0.65));
+        color: #fff;
+        opacity: 0;
+        transform: translateY(6px);
+        transition: opacity 0.35s ease, transform 0.35s ease;
+        pointer-events: none;
+      }
+      .item:hover .caption,
+      .item:focus-visible .caption {
+        opacity: 1;
+        transform: none;
+      }
+      .caption-title {
+        font-family: 'Cormorant Garamond', Georgia, serif;
+        font-style: italic;
+        font-size: 1.3rem;
+        line-height: 1.2;
+      }
+      .caption-album {
+        font-size: 0.68rem;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        opacity: 0.75;
+      }
+      /* На телефонах наведения нет — подпись всегда видна под фото */
+      @media (hover: none) {
+        .item { background: transparent; border-radius: 0; }
+        .item :global(img) { border-radius: 3px; }
+        .caption {
+          position: static;
+          opacity: 1;
+          transform: none;
+          background: none;
+          padding: 8px 2px 4px;
+        }
+        .caption-title { font-size: 1.1rem; }
+        .caption-album { color: var(--muted); opacity: 1; }
+      }
       .item :global(img) { transition: none; }
       }
     </style>
