@@ -24,7 +24,8 @@ const titleOf = (name: string) =>
 const albumOf = (path: string) => {
   const parts = path.replace('../photos/', '').split('/');
   if (parts.length < 2) return null;
-  const title = titleOf(parts[0]) || parts[0];
+  // «:» в имени папки — это «/», набранный в Finder: «05 Landscape:Nature» → «Landscape/Nature»
+  const title = (titleOf(parts[0]) || parts[0]).replace(/:/g, '/');
   return { slug: title.toLowerCase().replace(/\s+/g, '-'), title };
 };
 
