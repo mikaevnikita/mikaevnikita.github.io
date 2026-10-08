@@ -2,6 +2,8 @@ import { defineConfig } from 'astro/config';
 
 export default defineConfig({
   site: 'https://mikaevgallery.com',
+  // Мгновенный переход между альбомами: страница подгружается при наведении на кнопку
+  prefetch: true,
   image: {
     service: {
       entrypoint: 'astro/assets/services/sharp',

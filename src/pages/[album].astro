@@ -1,0 +1,13 @@
+---
+import Gallery from '../components/Gallery.astro';
+import { albums, type Album } from '../lib/gallery';
+
+// Страница альбома: /street/, /people/, … — по одной на папку в src/photos.
+export function getStaticPaths() {
+  return albums.map((album) => ({ params: { album: album.slug }, props: { album } }));
+}
+
+const { album } = Astro.props as { album: Album };
+---
+
+<Gallery album={album} />
