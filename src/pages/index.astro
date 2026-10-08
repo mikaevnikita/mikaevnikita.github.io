@@ -4,6 +4,9 @@ import { Image, getImage } from 'astro:assets';
 
 const TITLE = 'Nikita Mikaev';
 const SUBTITLE = 'Photography';
+const SITE_TITLE = `${TITLE} — Photographer in Tbilisi`;
+const DESCRIPTION =
+  'Nikita Mikaev is a photographer based in Tbilisi, Georgia. Street, portrait, event, architecture and interior photography. Available for commercial shoots.';
 
 const CONTACTS = [
   { kind: 'instagram', label: 'Instagram', value: '@nikitas.roll', href: 'https://instagram.com/nikitas.roll' },
@@ -56,6 +59,35 @@ const photos = await Promise.all(
     }),
 );
 
+// Обложка для превью ссылок (Open Graph): public/og.jpg — JPEG 1200×630, кадрирован вручную из «16 Katya/DSC03350».
+const canonical = new URL('/', Astro.site).href;
+const ogImage = new URL('/og.jpg', Astro.site).href;
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Person',
+      '@id': `${canonical}#person`,
+      name: TITLE,
+      jobTitle: 'Photographer',
+      url: canonical,
+      image: ogImage,
+      email: 'mailto:n.v.mikaev@gmail.com',
+      address: { '@type': 'PostalAddress', addressLocality: 'Tbilisi', addressCountry: 'GE' },
+      sameAs: CONTACTS.filter((c) => c.kind !== 'email').map((c) => c.href),
+    },
+    {
+      '@type': 'WebSite',
+      url: canonical,
+      name: SITE_TITLE,
+      description: DESCRIPTION,
+      inLanguage: 'en',
+      author: { '@id': `${canonical}#person` },
+    },
+  ],
+};
+
 const albums = [...new Map(photos.filter((p) => p.album).map((p) => [p.album!.slug, p.album!])).values()].map(
   (a) => ({ ...a, count: photos.filter((p) => p.album?.slug === a.slug).length }),
 );
@@ -67,8 +99,27 @@ const albums = [...new Map(photos.filter((p) => p.album).map((p) => [p.album!.sl
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>{TITLE} — {SUBTITLE}</title>
-    <meta name="description" content={`${SUBTITLE} by ${TITLE}`} />
+    <title>{SITE_TITLE}</title>
+    <meta name="description" content={DESCRIPTION} />
+    <link rel="canonical" href={canonical} />
+    <link rel="sitemap" href="/sitemap.xml" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={TITLE} />
+    <meta property="og:title" content={SITE_TITLE} />
+    <meta property="og:description" content={DESCRIPTION} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={`Photography by ${TITLE}`} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={SITE_TITLE} />
+    <meta name="twitter:description" content={DESCRIPTION} />
+    <meta name="twitter:image" content={ogImage} />
+
+    <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -113,7 +164,7 @@ const albums = [...new Map(photos.filter((p) => p.album).map((p) => [p.album!.sl
                 style={`--d:${Math.min(i, 12) * 60}ms`}>
                 <Image
                   src={p.src}
-                  alt={p.title || p.album?.title || 'Photo'}
+                  alt={[p.title, p.album?.title, `photo by ${TITLE}`].filter(Boolean).join(' — ')}
                   width={Math.min(p.src.width, 1200)}
                   widths={THUMB_WIDTHS}
                   sizes="(max-width: 640px) 100vw, (max-width: 1100px) 50vw, 33vw"
@@ -136,7 +187,7 @@ const albums = [...new Map(photos.filter((p) => p.album).map((p) => [p.album!.sl
 
       <section id="contact" class="contact">
         <h2>Contact me</h2>
-        <p>Shoots, collaborations, or just a chat about photography — get in touch.</p>
+        <p>Based in Tbilisi, Georgia. Commercial shoots, collaborations, or just a chat about photography — get in touch.</p>
         <div class="contact-cards">
           {CONTACTS.map((c) => (
             <a class="card" href={c.href} target={c.kind === 'email' ? undefined : '_blank'} rel="noopener">

@@ -1,7 +1,7 @@
 import { defineConfig } from 'astro/config';
 
 export default defineConfig({
-  site: 'https://mikaevnikita.github.io',
+  site: 'https://mikaevgallery.com',
   image: {
     service: {
       entrypoint: 'astro/assets/services/sharp',
