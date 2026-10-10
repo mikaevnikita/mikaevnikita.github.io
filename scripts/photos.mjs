@@ -9,6 +9,7 @@
 import { readdir, stat, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, parse, resolve } from 'node:path';
 import { availableParallelism } from 'node:os';
+import { execFileSync } from 'node:child_process';
 import sharp from 'sharp';
 
 // Мастер — источник для всех размеров, которые Astro нарежет при сборке.
@@ -37,12 +38,33 @@ for (const e of entries) {
 files.sort();
 if (files.length === 0) console.log(`Нет новых фото в ${SRC}`);
 
+// Фото, которые уже были на сайте и потом удалены из src/photos (по истории git),
+// заново не создаём, даже если оригинал ещё лежит в originals.
+const removed = new Set(
+  (() => {
+    try {
+      return execFileSync('git', ['log', '--diff-filter=D', '--name-only', '-z', '--format=', '--', 'src/photos'], {
+        encoding: 'utf8',
+      }).split('\0');
+    } catch {
+      return [];
+    }
+  })()
+    .filter(Boolean)
+    .map((p) => resolve(p.trim())),
+);
+
 let done = 0;
 let skipped = 0;
+let removedSkipped = 0;
 
 async function convert(file) {
   const input = join(SRC, file);
   const output = join(OUT, safe(parse(file).dir), `${safe(parse(file).name)}.webp`);
+  if (removed.has(output) && !(await stat(output).catch(() => null))) {
+    removedSkipped++;
+    return;
+  }
   const inStat = await stat(input);
   const outStat = await stat(output).catch(() => null);
   if (outStat && outStat.mtimeMs >= inStat.mtimeMs) {
@@ -72,6 +94,7 @@ await Promise.all(
   }),
 );
 console.log(`Готово: ${done} сконвертировано, ${skipped} без изменений.`);
+if (removedSkipped > 0) console.log(`Пропущено ${removedSkipped}: эти фото раньше удалены из src/photos.`);
 
 // Проверка дублей: одно и то же фото в src/photos под разными именами или в разных альбомах.
 // Сравниваем перцептивный хеш (dHash 16×16): он совпадает у одного кадра, даже если файл
