@@ -9,6 +9,7 @@
     "build": "astro build",
     "preview": "astro preview",
     "photos": "node scripts/photos.mjs",
+    "photo-dates": "node scripts/photo-dates.mjs",
     "upload": "bash scripts/publish.sh"
   },
   "dependencies": {

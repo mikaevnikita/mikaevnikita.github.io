@@ -1,6 +1,7 @@
 import type { ImageMetadata } from 'astro';
 import { getImage } from 'astro:assets';
 import { existsSync } from 'node:fs';
+import photoDates from '../photo-dates.json';
 
 export const TITLE = 'Nikita Mikaev';
 export const SUBTITLE = 'Photography';
@@ -56,17 +57,31 @@ const albumOf = (path: string) => {
   return { slug: slugify(title), title };
 };
 
-export const photos: Photo[] = Object.entries(modules)
-  .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
-  .map(([path, mod]) => {
-    const name = path.split('/').pop()!.replace(/\.[^.]+$/, '');
-    return { src: mod.default, title: titleOf(name).replace(/∕/g, '/'), album: albumOf(path) };
-  });
+// Дата загрузки каждого фото (src/photo-dates.json, ведёт `npm run upload`).
+// Фото без записи (ещё не залито) считаем самыми новыми.
+const uploadedAt = (key: string) => {
+  const t = Date.parse((photoDates as Record<string, string>)[key]);
+  return Number.isNaN(t) ? Infinity : t;
+};
+
+// Порядок по имени: из него строятся альбомы.
+const byName = Object.entries(modules).sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }));
+const photosByName: Photo[] = byName.map(([path, mod]) => {
+  const name = path.split('/').pop()!.replace(/\.[^.]+$/, '');
+  return { src: mod.default, title: titleOf(name).replace(/∕/g, '/'), album: albumOf(path) };
+});
+
+// На сайте фото идут по дате загрузки: новые сверху. Внутри одной загрузки — по имени
+// (sort стабильный, поэтому порядок по имени сохраняется для равных дат).
+export const photos: Photo[] = byName
+  .map(([path], i) => ({ t: uploadedAt(path.replace('../photos/', '')), photo: photosByName[i] }))
+  .sort((a, b) => (b.t > a.t ? 1 : b.t < a.t ? -1 : 0))
+  .map(({ photo }) => photo);
 
 export const albums: Album[] = [
-  ...new Map(photos.filter((p) => p.album).map((p) => [p.album!.slug, p.album!])).values(),
+  ...new Map(photosByName.filter((p) => p.album).map((p) => [p.album!.slug, p.album!])).values(),
 ].map((a) => {
-  const count = photos.filter((p) => p.album?.slug === a.slug).length;
+  const count = photosByName.filter((p) => p.album?.slug === a.slug).length;
   const seo = ALBUM_SEO[a.slug] ?? {};
   const heading = seo.heading ?? `${a.title} Photography`;
   const description = `${seo.description ?? `${heading} by ${TITLE}, a photographer based in Tbilisi, Georgia.`} ${count} photos.`;

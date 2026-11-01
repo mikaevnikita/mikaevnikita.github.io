@@ -1,14 +1,17 @@
 #!/bin/bash
 # Конвертирует новые фото из originals и заливает изменения src/photos на GitHub.
 #   npm run upload
-# В коммит попадает только src/photos: новые, переименованные и удалённые фото.
+# В коммит попадают только src/photos (новые, переименованные и удалённые фото) и src/photo-dates.json.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 node scripts/photos.mjs
 
 git add -A src/photos
-if git diff --cached --quiet -- src/photos; then
+# Даты загрузки для сортировки на сайте: новым фото — текущее время, переименованным — дата старого имени.
+node scripts/photo-dates.mjs
+git add src/photo-dates.json
+if git diff --cached --quiet -- src/photos src/photo-dates.json; then
   echo "Нечего заливать: в src/photos нет изменений."
   exit 0
 fi
@@ -25,8 +28,8 @@ msg=$(printf '%s\n' "$(summary A Add)" "$(summary D Remove)" | grep -v '^$' | pa
 [ -n "$msg" ] || msg="Update photos"
 
 echo
-git diff --cached --stat -- src/photos | cat
-git commit -q -m "$msg" -- src/photos
+git diff --cached --stat -- src/photos src/photo-dates.json | cat
+git commit -q -m "$msg" -- src/photos src/photo-dates.json
 git pull -q --rebase --autostash
 git push -q
 echo
