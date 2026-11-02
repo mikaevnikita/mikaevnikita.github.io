@@ -126,6 +126,11 @@ const jsonLd = {
     />
   </head>
   <body>
+    <div class="hero">
+    <video class="hero-bg" autoplay muted loop playsinline preload="auto" poster="/hero/hero-poster.webp" aria-hidden="true">
+      <source src="/hero/hero.webm" type="video/webm" />
+      <source src="/hero/hero.mp4" type="video/mp4" />
+    </video>
     <header>
       {
         album ? (
@@ -142,6 +147,19 @@ const jsonLd = {
       }
       <a class="contact-link" href="#contact">Contact me</a>
     </header>
+    {photos.length > 0 && albums.length > 0 && (
+      <nav class="albums" aria-label="Albums">
+        <a class="chip" href="/" aria-current={album ? undefined : 'page'} data-astro-prefetch>
+          All <span>{allPhotos.length}</span>
+        </a>
+        {albums.map((a) => (
+          <a class="chip" href={albumUrl(a.slug)} aria-current={a.slug === album?.slug ? 'page' : undefined} data-astro-prefetch>
+            {a.title} <span>{a.count}</span>
+          </a>
+        ))}
+      </nav>
+    )}
+    </div>
 
     <main>
       {
@@ -149,18 +167,6 @@ const jsonLd = {
           <p class="empty">Положите фото в <code>originals/</code> и запустите <code>npm run photos</code> — и они появятся здесь.</p>
         ) : (
           <>
-          {albums.length > 0 && (
-            <nav class="albums" aria-label="Albums">
-              <a class="chip" href="/" aria-current={album ? undefined : 'page'} data-astro-prefetch>
-                All <span>{allPhotos.length}</span>
-              </a>
-              {albums.map((a) => (
-                <a class="chip" href={albumUrl(a.slug)} aria-current={a.slug === album?.slug ? 'page' : undefined} data-astro-prefetch>
-                  {a.title} <span>{a.count}</span>
-                </a>
-              ))}
-            </nav>
-          )}
           <div class="grid">
             {photos.map((p, i) => (
               <a
@@ -230,7 +236,14 @@ const jsonLd = {
     </div>
 
     <script>
-      const items = [...document.querySelectorAll<HTMLAnchorElement>('.item')];
+      // Без анимации для тех, кто отключил движение в системе — остаётся постер
+      if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        const v = document.querySelector<HTMLVideoElement>('.hero-bg');
+        v?.removeAttribute('autoplay');
+        v?.pause();
+      }
+
+      const items =[...document.querySelectorAll<HTMLAnchorElement>('.item')];
       const visible = items;
 
       const box = document.querySelector<HTMLElement>('.lightbox')!;
@@ -321,6 +334,39 @@ const jsonLd = {
     </style>
 
     <style>
+      /* Шапка + тумблеры альбомов поверх зацикленного видео */
+      .hero {
+        position: relative;
+        isolation: isolate;
+        overflow: hidden;
+        margin-bottom: 34px;
+        padding-bottom: clamp(28px, 5vw, 56px);
+      }
+      .hero-bg {
+        position: absolute;
+        inset: 0;
+        z-index: -2;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center 35%;
+        filter: grayscale(0.15);
+      }
+      /* Затемнение для читаемости текста и плавный переход в фон страницы */
+      .hero::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        background:
+          radial-gradient(ellipse at center, rgba(14, 14, 14, 0.35), rgba(14, 14, 14, 0.7) 75%),
+          linear-gradient(to bottom, rgba(14, 14, 14, 0.2), rgba(14, 14, 14, 0.25) 60%, var(--bg));
+      }
+      .hero .tagline { color: #c4c4c4; }
+      .hero .contact-link { border-color: rgba(255, 255, 255, 0.45); }
+      .hero .contact-link:hover { border-color: var(--fg); }
+      header, .name, .tagline { text-shadow: 0 1px 12px rgba(0, 0, 0, 0.6); }
+
       header {
         text-align: center;
         padding: clamp(48px, 10vw, 110px) 16px clamp(32px, 6vw, 64px);
@@ -367,15 +413,18 @@ const jsonLd = {
         flex-wrap: wrap;
         justify-content: center;
         gap: 10px;
-        margin: 0 auto 34px;
+        margin: 0 auto;
+        padding: 0 16px;
       }
       .chip {
         display: inline-block;
         font-size: 0.85rem;
         text-decoration: none;
-        color: var(--muted);
-        background: transparent;
-        border: 1px solid #2c2c2c;
+        color: #cfcfcf;
+        background: rgba(14, 14, 14, 0.45);
+        -webkit-backdrop-filter: blur(6px);
+        backdrop-filter: blur(6px);
+        border: 1px solid rgba(255, 255, 255, 0.18);
         border-radius: 999px;
         padding: 8px 18px;
         cursor: pointer;
@@ -386,7 +435,7 @@ const jsonLd = {
         opacity: 0.6;
         margin-left: 4px;
       }
-      .chip:hover { color: var(--fg); border-color: #555; }
+      .chip:hover { color: var(--fg); border-color: rgba(255, 255, 255, 0.45); }
       .chip[aria-current='page'] {
         color: var(--bg);
         background: var(--fg);
